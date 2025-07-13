@@ -1,5 +1,3 @@
-alert("JS is working!");
-
 const davBooks = {
   "Class 7": {
     Science: "https://davbooklink.example.com/class7/science",
