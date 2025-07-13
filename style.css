@@ -1,0 +1,21 @@
+h1 {
+  color: darkgreen;
+  text-shadow: 2px 2px 5px gray;
+  font-family: 'Arial', sans-serif;
+}
+body {
+    text-align: center;
+background-color: lightblue;
+}
+button {
+  background-color: orange;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+}
+button:hover {
+  background-color: darkorange;
+}
