@@ -11,7 +11,38 @@ body {
   align-items: center;
   height: 100vh;
 }
+.feedback-buttons {
+  margin-top: 5px;
+}
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
 
+.message-wrapper.user {
+  align-items: flex-end;
+}
+
+.feedback-buttons {
+  margin-top: 2px;
+  margin-left: 10px;
+}
+
+.feedback-buttons button {
+  margin-right: 8px;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  transition: transform 0.2s;
+}
+
+.feedback-buttons button.selected {
+  color: green;
+  transform: scale(1.2);
+}
 .container {
   width: 100%;
   max-width: 600px;
@@ -44,12 +75,14 @@ h1 {
 }
 
 .chat-message {
-  max-width: 80%;
-  padding: 10px 15px;
-  border-radius: 18px;
-  line-height: 1.4;
-  font-size: 15px;
-  white-space: pre-wrap;
+  background-color: #f0f0f0;
+  padding: 10px;
+  margin: 5px;
+  border-radius: 10px;
+  max-width: 80%;             /* keeps bubble from getting too wide */
+  word-wrap: break-word;      /* breaks long words like links */
+  overflow-wrap: break-word;  /* wraps even inside long URLs */
+  white-space: normal;        /* allows wrapping */
 }
 
 .user {
