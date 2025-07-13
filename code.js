@@ -18,10 +18,49 @@ setTimeout(() => {
 });
 
 function appendMessage(sender, text, className) {
-  const div = document.createElement("div");
-  div.classList.add("chat-message", className);
-  div.innerHTML = `<strong>${sender}:</strong> ${text}`;
-  chatBox.appendChild(div);
+  const wrapper = document.createElement("div");
+  wrapper.classList.add("chat-wrapper", className);
+
+  const msgDiv = document.createElement("div");
+  msgDiv.classList.add("chat-message", className);
+  msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+
+  const time = document.createElement("span");
+  time.className = "msg-time";
+  time.textContent = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+  wrapper.appendChild(msgDiv);
+  wrapper.appendChild(time);
+
+  if (className === "bot") {
+    const buttonsDiv = document.createElement("div");
+    buttonsDiv.className = "feedback-buttons";
+
+    const speakBtn = document.createElement("button");
+    speakBtn.textContent = "🔊";
+    speakBtn.addEventListener("click", () => speakText(stripHTML(text)));
+
+    const likeBtn = document.createElement("button");
+    likeBtn.textContent = "👍";
+    likeBtn.addEventListener("click", () => {
+      likeBtn.classList.add("selected");
+      dislikeBtn.classList.remove("selected");
+    });
+
+    const dislikeBtn = document.createElement("button");
+    dislikeBtn.textContent = "👎";
+    dislikeBtn.addEventListener("click", () => {
+      dislikeBtn.classList.add("selected");
+      likeBtn.classList.remove("selected");
+    });
+
+    buttonsDiv.appendChild(speakBtn);
+    buttonsDiv.appendChild(likeBtn);
+    buttonsDiv.appendChild(dislikeBtn);
+    wrapper.appendChild(buttonsDiv);
+  }
+
+  chatBox.appendChild(wrapper);
   chatBox.scrollTop = chatBox.scrollHeight;
 }
 
