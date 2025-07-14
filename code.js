@@ -10,12 +10,48 @@ form.addEventListener("submit", (e) => {
   appendMessage("You", userText, "user");
   input.value = "";
 
-setTimeout(() => {
-  const reply = getAIResponse(userText);
+setTimeout(async () => {
+  let reply;
+  if (userText.toLowerCase().startsWith("image:")) {
+    const prompt = userText.slice(6).trim();
+    reply = await generateImage(prompt);
+  } else {
+    reply = getAIResponse(userText);
+    speakText(stripHTML(reply));
+  }
+
   appendMessage("DAV AI", reply, "bot");
-  speakText(stripHTML(reply)); // 👈 AI voice will speak the reply
 }, 500);
+
 });
+async function generateImage(prompt) {
+  try {
+    const response = await fetch("/api/generate-image", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ prompt })
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("❌ API error response:", error);
+      return "❌ Image generation failed. Please try again.";
+    }
+
+    const blob = await response.blob();
+    const imageUrl = URL.createObjectURL(blob);
+
+    return `<strong>🎨 AI Image:</strong><br><img src="${imageUrl}" alt="Generated image" style="max-width:100%; border-radius: 10px; margin-top: 10px;" />`;
+
+  } catch (err) {
+    console.error("❌ Unexpected error:", err);
+    return "❌ Something went wrong while generating the image.";
+  }
+}
+
+
 
 function appendMessage(sender, text, className) {
   const wrapper = document.createElement("div");
