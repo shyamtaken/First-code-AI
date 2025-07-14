@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const response = await fetch("https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer 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",  // your HF key
+        "Authorization": "Bearer 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",
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ inputs: prompt })
@@ -20,15 +20,18 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("Hugging Face error:", errorText);
+      console.error("❌ Hugging Face error:", errorText);
       return res.status(500).json({ error: "Image generation failed" });
     }
 
-    const buffer = await response.arrayBuffer();
+    const arrayBuffer = await response.arrayBuffer();
+    const buffer = Buffer.from(arrayBuffer);
+
     res.setHeader("Content-Type", "image/png");
-    res.status(200).send(Buffer.from(buffer));
+    res.setHeader("Content-Length", buffer.length);
+    res.status(200).end(buffer); // ✅ this is Vercel-safe binary output
   } catch (err) {
-    console.error("API error:", err);
+    console.error("❌ Internal Error:", err);
     res.status(500).json({ error: "Internal Server Error" });
   }
 }
