@@ -1,3 +1,22 @@
+async function askGroq(prompt) {
+  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer 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`, // Replace with environment variable later!
+    },
+    body: JSON.stringify({
+      model: "llama3-8b-8192",
+      messages: [
+        { role: "system", content: "You are a helpful AI for DAV students." },
+        { role: "user", content: prompt },
+      ],
+    }),
+  });
+
+  const data = await response.json();
+  return data.choices?.[0]?.message?.content || "❌ No response from AI.";
+}
 
 const form = document.getElementById("chat-form");
 const chatBox = document.getElementById("chat-box");
@@ -7,36 +26,49 @@ form.addEventListener("submit", (e) => {
   e.preventDefault();
   const userText = input.value.trim();
   if (userText === "") return;
+
   appendMessage("You", userText, "user");
   input.value = "";
 
-setTimeout(async () => {
-  let reply;
-  if (userText.toLowerCase().startsWith("image:")) {
-    const prompt = userText.slice(6).trim();
-    reply = await generateImage(prompt);
-  } else {
-    reply = getAIResponse(userText);
-    speakText(stripHTML(reply));
-  }
+  setTimeout(async () => {
+    let reply;
 
-  appendMessage("DAV AI", reply, "bot");
-}, 500);
+    if (userText.toLowerCase().startsWith("image:")) {
+      const prompt = userText.slice(6).trim();
+      reply = await generateImage(prompt);
+    } else {
+      // Try AI first
+      try {
+    reply = getAIResponse(userText); // 🔍 Try your logic first
 
+if (reply.startsWith("❌")) {
+  // If your logic fails, ask Groq
+  reply = await askGroq(userText);
+}
+
+      } catch {
+        // fallback to local book logic
+        reply = getAIResponse(userText);
+      }
+
+      speakText(stripHTML(reply));
+    }
+
+    appendMessage("DAV AI", reply, "bot");
+  }, 500);
 });
+
 async function generateImage(prompt) {
   try {
-    const response = await fetch("/api/generate-image", {
+    const response = await fetch("https://first-code-ai.vercel.app/api/generate-image", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({ prompt })
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prompt }),
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("❌ API error response:", error);
+      console.error("❌ API error:", error);
       return "❌ Image generation failed. Please try again.";
     }
 
@@ -44,14 +76,11 @@ async function generateImage(prompt) {
     const imageUrl = URL.createObjectURL(blob);
 
     return `<strong>🎨 AI Image:</strong><br><img src="${imageUrl}" alt="Generated image" style="max-width:100%; border-radius: 10px; margin-top: 10px;" />`;
-
   } catch (err) {
     console.error("❌ Unexpected error:", err);
     return "❌ Something went wrong while generating the image.";
   }
 }
-
-
 
 function appendMessage(sender, text, className) {
   const wrapper = document.createElement("div");
@@ -105,7 +134,6 @@ function getAIResponse(message) {
   const classMatch = msg.match(/class\s*([1-9]|1[0-2])/);
   const classNum = classMatch ? `Class ${classMatch[1]}` : null;
 
-  // Special book detection (Class 5)
   if (msg.includes("bhasha abhyas") && msg.includes("class 5")) {
     return `Class 5 Bhasha Abhyas: <a href="https://drive.google.com/file/d/1ELgKoWlkj_YQimqUEFpopRkF-DOf02J-/view" target="_blank">Open Book</a>`;
   }
@@ -116,12 +144,10 @@ function getAIResponse(message) {
     return `Class 5 Surbhi: <a href="https://drive.google.com/file/d/1I_5m_mRJuWKiuWQ8A7bWlcorH7sJosw4/view" target="_blank">Open Book</a>`;
   }
 
-  // Full class listing like "class 4 books"
   if (msg.match(/class\s*([1-7])\s*(books)?/)) {
     return showFullClassBooks(classNum);
   }
 
-  // Individual subject detection
   const subjectMatch = msg.match(/(english (practice|reader|literature)?|maths?|science|sst|social|hindi( reader| abhyas)?|computer|g\.?k\.?|moral|value|sanskrit)/);
   const rawSubject = subjectMatch ? subjectMatch[0].toLowerCase() : null;
 
@@ -138,7 +164,6 @@ function getAIResponse(message) {
     return showFullClassBooks(classNum);
   }
 
-  // Greeting
   if (msg.match(/(^|\s)(hello|hi|hey)(\s|$)/)) {
     return "Hello! I’m your DAV AI Assistant. Ask me for any DAV book like ‘Class 3 Science’ or ‘Class 1 books’.";
   }
@@ -155,6 +180,21 @@ function showFullClassBooks(classNum) {
   }
   return response;
 }
+
+function speakText(text) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-IN'; // Use 'hi-IN' for Hindi
+  speechSynthesis.speak(utterance);
+}
+
+function stripHTML(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || "";
+}
+
+// Keep your full bookData here (not repeated here due to size)
+
 
 const bookData = {
   "Class 1": {
