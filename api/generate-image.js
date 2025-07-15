@@ -1,18 +1,18 @@
 export default async function handler(req, res) {
   if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST requests allowed" });
+    return res.status(405).json({ error: "Only POST allowed" });
   }
 
   const prompt = req.body.prompt;
-  if (!prompt) {
-    return res.status(400).json({ error: "No prompt provided" });
-  }
+  if (!prompt) return res.status(400).json({ error: "No prompt provided" });
+
+  const HF_TOKEN = process.env.HF_TOKEN; // 🔒 Use env variable
 
   try {
-    const response = await fetch("https://api-inference.huggingface.co/models/CompVis/stable-diffusion-v1-4", {
+    const response = await fetch("https://api-inference.huggingface.co/models/stabilityai/stable-diffusion-2", {
       method: "POST",
       headers: {
-        "Authorization": "Bearer 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",
+        Authorization: `Bearer ${HF_TOKEN}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ inputs: prompt })
@@ -20,18 +20,16 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("❌ Hugging Face error:", errorText);
-      return res.status(500).json({ error: "Image generation failed" });
+      console.error("❌ Hugging Face API Error:", errorText);
+      return res.status(500).send("❌ Image generation failed.");
     }
 
-    const arrayBuffer = await response.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
+    const imageBuffer = await response.arrayBuffer();
 
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Content-Length", buffer.length);
-    res.status(200).end(buffer); // ✅ this is Vercel-safe binary output
+    res.send(Buffer.from(imageBuffer));
   } catch (err) {
-    console.error("❌ Internal Error:", err);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("❌ Unexpected Error:", err);
+    res.status(500).send("❌ Error generating image.");
   }
 }
