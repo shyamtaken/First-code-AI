@@ -1,21 +1,137 @@
-async function askGroq(prompt) {
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+document.getElementById('newChatBtn').onclick = function() {
+  if (window.chatHistory) window.chatHistory = [];
+  const chatBox = document.getElementById('chat-box');
+  if (chatBox) chatBox.innerHTML = "";
+  const input = document.getElementById('user-input');
+  if (input) input.value = "";
+  window.lastUserMessage = "";
+};
+function toBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file); // Keep full string, including "data:image/png;base64,..."
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+  });
+}
+
+// Track chat history for multi-turn context
+let chatHistory = [];
+
+async function sendImageToHuggingFace(base64Image, promptText) {
+  // Build conversation context for multi-turn understanding
+  const contextMessages = chatHistory.map(msg => {
+    // Only include user and bot text, not images
+    if (msg.className === "user" || msg.className === "bot") {
+      // Remove HTML tags for context
+      return `${msg.sender}: ${stripHTML(msg.text)}`;
+    }
+    return null;
+  }).filter(Boolean);
+  const fullPrompt = contextMessages.join("\n") + `\nYou: ${promptText}`;
+
+  const response = await fetch("https://api-inference.huggingface.co/models/llava-hf/llava-1.5-7b-hf", {
     method: "POST",
     headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer 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`, // Replace with environment variable later!
+      "Authorization": "Bearer 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",
+      "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "llama3-8b-8192",
-      messages: [
-        { role: "system", content: "You are a helpful AI for DAV students." },
-        { role: "user", content: prompt },
-      ],
-    }),
+      inputs: {
+        image: base64Image,
+        question: fullPrompt
+      }
+    })
   });
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || "❌ No response from AI.";
+  const result = await response.json();
+  return result;
+}
+
+
+// Handles image upload from chat UI, performs OCR, and sends result to AI
+async function handleScreenshot(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async function () {
+    const imageData = reader.result;
+    // Show image in chat as a user message
+    appendMessage("You", `<img src='${imageData}' alt='Uploaded image' style='max-width: 200px; border-radius: 10px;' />`, "user");
+    appendMessage("DAV AI", "Extracting text from image...", "bot");
+    // OCR using Tesseract
+    if (window.Tesseract) {
+      const result = await window.Tesseract.recognize(imageData, 'eng', {
+        logger: m => console.log(m)
+      });
+      const extractedText = result.data.text.trim();
+      if (!extractedText) {
+        appendMessage("DAV AI", "❌ Could not read the question. Please upload a clearer image.", "bot");
+        return;
+      }
+      // Show extracted text as a user message
+      appendMessage("You", extractedText, "user");
+      // Now send to your AI model
+      let aiReply = await askGroq(extractedText);
+      appendMessage("DAV AI", aiReply, "bot");
+    } else {
+      appendMessage("DAV AI", "❌ OCR library not loaded.", "bot");
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+async function askGroq(prompt, memoryLength = 20) {
+  try {
+    // Get last N messages for short-term memory
+    const context = chatHistory
+      .filter(msg => msg.className === "user" || msg.className === "bot")
+      .slice(-memoryLength)
+      .map(msg => ({
+        role: msg.className === "user" ? "user" : "assistant",
+        content: stripHTML(msg.text)
+      }));
+
+    // Add the current user prompt
+    context.push({ role: "user", content: prompt });
+
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer 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`,
+      },
+      body: JSON.stringify({
+        model: "llama3-8b-8192",
+        messages: [
+          { role: "system", content: "You are a helpful AI for DAV students." },
+          ...context
+        ],
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      console.error("Groq API error:", error);
+      return "❌ No response from AI.";
+    }
+
+    const data = await response.json();
+    if (
+      data &&
+      Array.isArray(data.choices) &&
+      data.choices.length > 0 &&
+      data.choices[0].message &&
+      data.choices[0].message.content
+    ) {
+      return data.choices[0].message.content;
+    } else {
+      console.error("Groq API unexpected response:", data);
+      return "❌ No response from AI.";
+    }
+  } catch (err) {
+    console.error("Groq API fetch error:", err);
+    return "❌ No response from AI.";
+  }
 }
 
 const form = document.getElementById("chat-form");
@@ -29,6 +145,9 @@ form.addEventListener("submit", (e) => {
 
   appendMessage("You", userText, "user");
   input.value = "";
+
+  // Store last user message for regenerate button
+  window.lastUserMessage = userText;
 
   setTimeout(async () => {
     let reply;
@@ -83,6 +202,8 @@ async function generateImage(prompt) {
 }
 
 function appendMessage(sender, text, className) {
+  // Add message to chat history
+  chatHistory.push({ sender, text, className });
   const wrapper = document.createElement("div");
   wrapper.classList.add("chat-wrapper", className);
 
@@ -100,28 +221,79 @@ function appendMessage(sender, text, className) {
   if (className === "bot") {
     const buttonsDiv = document.createElement("div");
     buttonsDiv.className = "feedback-buttons";
-
-    const speakBtn = document.createElement("button");
-    speakBtn.textContent = "🔊";
-    speakBtn.addEventListener("click", () => speakText(stripHTML(text)));
-
+    buttonsDiv.style.display = "flex";
+    buttonsDiv.style.gap = "2px";
+    buttonsDiv.style.marginTop = "4px";
+    // Like button
     const likeBtn = document.createElement("button");
-    likeBtn.textContent = "👍";
-    likeBtn.addEventListener("click", () => {
+    likeBtn.title = "Like";
+    likeBtn.innerHTML = "<svg width='18' height='18' viewBox='0 0 20 20' style='vertical-align:middle'><path d='M2 10v8h4V10H2zm16.2-2.4c-.3-.4-.8-.6-1.3-.6h-5.1l.7-3.4c.1-.5-.1-1-.5-1.3-.4-.3-.9-.3-1.3-.1l-1.2.7c-.4.2-.6.7-.5 1.1l.7 3.5H6c-.6 0-1 .4-1 1v8c0 .6.4 1 1 1h9c.5 0 .9-.3 1-.8l2-8c.1-.5 0-1-.3-1.3z' fill='#888'/></svg>";
+    likeBtn.style.padding = "2px";
+    likeBtn.style.background = "none";
+    likeBtn.style.border = "none";
+    likeBtn.style.cursor = "pointer";
+    likeBtn.onclick = () => {
       likeBtn.classList.add("selected");
       dislikeBtn.classList.remove("selected");
-    });
-
+    };
+    // Dislike button
     const dislikeBtn = document.createElement("button");
-    dislikeBtn.textContent = "👎";
-    dislikeBtn.addEventListener("click", () => {
+    dislikeBtn.title = "Dislike";
+    dislikeBtn.innerHTML = "<svg width='18' height='18' viewBox='0 0 20 20' style='vertical-align:middle'><path d='M18 10V2h-4v8h4zm-16.2 2.4c.3.4.8.6 1.3.6h5.1l-.7 3.4c-.1.5.1 1 .5 1.3.4.3.9.3 1.3.1l1.2-.7c.4-.2.6-.7.5-1.1l-.7-3.5H14c.6 0 1-.4 1-1v-8c0-.6-.4-1-1-1H5c-.5 0-.9.3-1 .8l-2 8c-.1.5 0 1 .3 1.3z' fill='#888'/></svg>";
+    dislikeBtn.style.padding = "2px";
+    dislikeBtn.style.background = "none";
+    dislikeBtn.style.border = "none";
+    dislikeBtn.style.cursor = "pointer";
+    dislikeBtn.onclick = () => {
       dislikeBtn.classList.add("selected");
       likeBtn.classList.remove("selected");
-    });
+    };
+    // Regenerate button
+    const regenBtn = document.createElement("button");
+    regenBtn.title = "Regenerate";
+    regenBtn.innerHTML = "<svg width='18' height='18' viewBox='0 0 20 20' style='vertical-align:middle'><path d='M10 2v2a6 6 0 1 1-6 6H2a8 8 0 1 0 8-8z' fill='#888'/></svg>";
+    regenBtn.style.padding = "2px";
+    regenBtn.style.background = "none";
+    regenBtn.style.border = "none";
+    regenBtn.style.cursor = "pointer";
+    regenBtn.onclick = () => {
+      // Regenerate response (re-call last AI)
+      if (typeof window.lastUserMessage === 'string') {
+        appendMessage("DAV AI", "Regenerating...", "bot");
+        setTimeout(async () => {
+          let reply = await askGroq(window.lastUserMessage);
+          appendMessage("DAV AI", reply, "bot");
+        }, 500);
+      }
+    };
+    // Copy button
+    const copyBtn = document.createElement("button");
+    copyBtn.title = "Copy";
+    copyBtn.innerHTML = "<svg width='18' height='18' viewBox='0 0 20 20' style='vertical-align:middle'><rect x='4' y='4' width='12' height='12' rx='2' fill='#888'/></svg>";
+    copyBtn.style.padding = "2px";
+    copyBtn.style.background = "none";
+    copyBtn.style.border = "none";
+    copyBtn.style.cursor = "pointer";
+    copyBtn.onclick = () => {
+      navigator.clipboard.writeText(stripHTML(text));
+      copyBtn.classList.add("selected");
+      setTimeout(() => copyBtn.classList.remove("selected"), 800);
+    };
+    // Read aloud button
+    const speakBtn = document.createElement("button");
+    speakBtn.title = "Read aloud";
+    speakBtn.innerHTML = "<svg width='18' height='18' viewBox='0 0 20 20' style='vertical-align:middle'><path d='M3 8v4h4l5 5V3L7 8H3z' fill='#888'/></svg>";
+    speakBtn.style.padding = "2px";
+    speakBtn.style.background = "none";
+    speakBtn.style.border = "none";
+    speakBtn.style.cursor = "pointer";
+    speakBtn.onclick = () => speakText(stripHTML(text));
 
-    buttonsDiv.appendChild(speakBtn);
     buttonsDiv.appendChild(likeBtn);
     buttonsDiv.appendChild(dislikeBtn);
+    buttonsDiv.appendChild(regenBtn);
+    buttonsDiv.appendChild(copyBtn);
+    buttonsDiv.appendChild(speakBtn);
     wrapper.appendChild(buttonsDiv);
   }
 
@@ -168,7 +340,8 @@ function getAIResponse(message) {
     return "Hello! I’m your DAV AI Assistant. Ask me for any DAV book like ‘Class 3 Science’ or ‘Class 1 books’.";
   }
 
-  return "❌ Sorry, I couldn’t find that book. Try asking like: ‘class 4 hindi abhyas’ or ‘class 2 books’.";
+  // If not found, suggest web search
+  return "❌ Sorry, I couldn’t find that book. Try asking like: ‘class 4 hindi abhyas’ or ‘class 2 books’.<br>" + getWebSearchLink(message);
 }
 
 function showFullClassBooks(classNum) {
@@ -181,12 +354,17 @@ function showFullClassBooks(classNum) {
   return response;
 }
 
-function speakText(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'en-IN'; // Use 'hi-IN' for Hindi
-  speechSynthesis.speak(utterance);
+// Helper to generate DuckDuckGo search link
+function getWebSearchLink(query) {
+  const url = `https://duckduckgo.com/?q=${encodeURIComponent(query)}`;
+  return `<a href='${url}' target='_blank' style='color:#0078fe;text-decoration:underline;'>🔎 Search the web for "${stripHTML(query)}"</a>`;
 }
 
+function speakText(text) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = 'en-IN'; // Use 'hi-IN' for Hindi if needed
+  speechSynthesis.speak(utterance);
+}
 function stripHTML(html) {
   const tmp = document.createElement("div");
   tmp.innerHTML = html;
@@ -267,13 +445,3 @@ const bookData = {
     "Moral Science": "https://drive.google.com/file/d/1S6I-GHTY5T6MlB7TguR3qYqV0CKg27Ve/view"
   }
 };
-function speakText(text) {
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = 'en-IN'; // Use 'hi-IN' for Hindi if needed
-  speechSynthesis.speak(utterance);
-}
-function stripHTML(html) {
-  const tmp = document.createElement("div");
-  tmp.innerHTML = html;
-  return tmp.textContent || tmp.innerText || "";
-}
