@@ -33,7 +33,7 @@ async function sendImageToHuggingFace(base64Image, promptText) {
   const response = await fetch("https://api-inference.huggingface.co/models/llava-hf/llava-1.5-7b-hf", {
     method: "POST",
     headers: {
-      "Authorization": "Bearer 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",
+      "Authorization": "Bearer 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",
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
