@@ -98,7 +98,7 @@ async function askGroq(prompt, memoryLength = 20) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer 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`,
+        Authorization: `Bearer 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`,
       },
       body: JSON.stringify({
         model: "llama3-8b-8192",
