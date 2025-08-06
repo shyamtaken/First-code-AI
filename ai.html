@@ -9,34 +9,26 @@
 </head>
 <body>
   <div class="container">
-    <div class="container">
-  <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
-    <button id="newChatBtn"
-      style="
-        background: linear-gradient(90deg,#ececf1 0%,#f7f7f8 100%);
-        border: 1px solid #d1d5db;
-        color: #333;
-        font-size: 1em;
-        padding: 8px 18px;
-        border-radius: 18px;
-        box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-        cursor: pointer;
-        font-weight: 500;
-        transition: background 0.2s;
-      "
-      onmouseover="this.style.background='#e3e7ed'"
-      onmouseout="this.style.background='linear-gradient(90deg,#ececf1 0%,#f7f7f8 100%)'"
-    >🆕 New Chat</button>
-    <h1 style="margin:0;">🤖 DAV AI Assistant</h1>
-  </div>
-  <div class="chat-box" id="chat-box">
-    <!-- Messages will appear here -->
-  </div>
-  <!-- ...rest of your code... -->
-   
-    <div class="chat-box" id="chat-box">
-      <!-- Messages will appear here -->
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">
+      <button id="newChatBtn"
+        style="
+          background: linear-gradient(90deg,#ececf1 0%,#f7f7f8 100%);
+          border: 1px solid #d1d5db;
+          color: #333;
+          font-size: 1em;
+          padding: 8px 18px;
+          border-radius: 18px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+          cursor: pointer;
+          font-weight: 500;
+          transition: background 0.2s;
+        "
+        onmouseover="this.style.background='#e3e7ed'"
+        onmouseout="this.style.background='linear-gradient(90deg,#ececf1 0%,#f7f7f8 100%)'"
+      >🆑️ New Chat</button>
+      <h1 style="margin:0;">🤖 DAV AI Assistant</h1>
     </div>
+    <div class="chat-box" id="chat-box"></div>
 
     <form id="chat-form">
       <div style="display: flex; align-items: center; background: #f7f7f8; border-radius: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); padding: 8px 16px; gap: 8px;">
@@ -61,103 +53,20 @@
         <button type="button" id="micBtn" title="Speak" style="width:40px;height:40px;border-radius:50%;background:#fff;color:#0078fe;font-size:18px;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-left:4px;display:flex;align-items:center;justify-content:center;">
           <svg width="22" height="22" viewBox="0 0 20 20"><path d="M10 2a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3zm5 9a1 1 0 0 1 2 0c0 3.31-2.69 6-6 6s-6-2.69-6-6a1 1 0 0 1 2 0c0 2.21 1.79 4 4 4s4-1.79 4-4z" fill="#0078fe"/></svg>
         </button>
-        <button type="submit" style="width:40px;height:40px;border-radius:50%;background:#0078fe;color:#fff;font-size:18px;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-left:8px;">➤</button>
+        <button type="submit" style="width:40px;height:40px;border-radius:50%;background:#0078fe;color:#fff;font-size:18px;border:none;box-shadow:0 1px 4px rgba(0,0,0,0.08);margin-left:8px;">➔</button>
       </div>
     </form>
   </div>
 
   <script src="code.js"></script>
-  <!-- Removed global handleScreenshot override for clarity -->
   <script>
     let uploadedImageFile = null;
-    document.addEventListener('DOMContentLoaded', function() {
-      const plusBtn = document.getElementById('plusBtn');
-      const plusMenu = document.getElementById('plusMenu');
-      const screenshotInput = document.getElementById('screenshotInput');
-      const chatForm = document.getElementById('chat-form');
-      const userInput = document.getElementById('user-input');
-
-      plusBtn.addEventListener('click', function(e) {
-        e.stopPropagation();
-        plusMenu.style.display = plusMenu.style.display === 'none' || plusMenu.style.display === '' ? 'block' : 'none';
-      });
-      document.addEventListener('click', function(e) {
-        if (!plusBtn.contains(e.target) && !plusMenu.contains(e.target)) {
-          plusMenu.style.display = 'none';
-        }
-      });
-      screenshotInput.addEventListener('change', function() {
-        if (screenshotInput.files.length > 0) {
-          uploadedImageFile = screenshotInput.files[0];
-          // Show a small preview or icon (optional)
-          let preview = document.getElementById('image-preview');
-          if (!preview) {
-            preview = document.createElement('span');
-            preview.id = 'image-preview';
-            preview.style.marginLeft = '8px';
-            preview.style.verticalAlign = 'middle';
-            preview.innerHTML = '📷';
-            userInput.parentNode.insertBefore(preview, userInput.nextSibling);
-          }
-        }
-        plusMenu.style.display = 'none';
-      });
-      chatForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        if (uploadedImageFile) {
-          // Call handleScreenshot with the uploaded file
-          if (typeof handleScreenshot === 'function') {
-            handleScreenshot(uploadedImageFile);
-          }
-          uploadedImageFile = null;
-          userInput.value = '';
-          screenshotInput.value = '';
-          // Remove preview icon
-          const preview = document.getElementById('image-preview');
-          if (preview) preview.remove();
-        } else {
-          // If no image, send text message as usual
-          if (typeof formSubmitHandler === 'function') {
-            formSubmitHandler();
-          } // else code.js will handle
-        }
-      });
-
-      // Mic button speech-to-text
-      const micBtn = document.getElementById('micBtn');
-      let recognition;
-      if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        recognition = new SpeechRecognition();
-        recognition.lang = 'en-IN';
-        recognition.continuous = false;
-        recognition.interimResults = false;
-        micBtn.addEventListener('click', function() {
-          micBtn.style.background = '#e0e0e0';
-          recognition.start();
-        });
-        recognition.onresult = function(event) {
-          const transcript = event.results[0][0].transcript;
-          userInput.value = transcript;
-          micBtn.style.background = '#fff';
-        };
-        recognition.onerror = function() {
-          micBtn.style.background = '#fff';
-        };
-        recognition.onend = function() {
-          micBtn.style.background = '#fff';
-        };
-      } else {
-        micBtn.addEventListener('click', function() {
-          alert('Speech recognition not supported in this browser.');
-        });
-      }
-    });
     function openCamera() {
       alert('Camera capture not implemented yet.');
       document.getElementById('plusMenu').style.display = 'none';
     }
   </script>
-  <!-- Only keep the enhanced script block below -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
 </body>
 </html>

@@ -1,4 +1,17 @@
-/* --- Improved ChatGPT-like style --- */
+/* Add this to your CSS file or in a <style> tag */
+ .highlight {
+    background-color: yellow;
+    padding: 2px 4px;
+    border-radius: 4px;
+    font-weight: bold;
+  }
+.highlighted {
+  background: #ffe066;
+  color: #222;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: bold;
+}
 body {
   margin: 0;
   font-family: 'Segoe UI', 'Inter', Arial, sans-serif;

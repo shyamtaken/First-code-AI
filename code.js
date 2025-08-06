@@ -1,3 +1,20 @@
+// This array will hold the conversation turns during this session
+const conversationHistory = [];
+function highlightWords(text) {
+  return text.replace(/\*\*(.+?)\*\*/g, '<span class="highlight">$1</span>');
+}
+
+// Add this function anywhere above appendMessage
+function highlightKeywords(text) {
+  // Add more words as needed in the array
+  const keywords = ["noun", "verb", "adjective", "pronoun", "adverb"];
+  keywords.forEach(word => {
+    // Regex for bolded word (e.g., **noun**)
+    const regex = new RegExp(`\\*\\*(${word})\\*\\*`, "gi");
+    text = text.replace(regex, `<span class="highlighted">$1</span>`);
+  });
+  return text;
+}
 document.getElementById('newChatBtn').onclick = function() {
   if (window.chatHistory) window.chatHistory = [];
   const chatBox = document.getElementById('chat-box');
@@ -71,7 +88,7 @@ async function handleScreenshot(file) {
       // Show extracted text as a user message
       appendMessage("You", extractedText, "user");
       // Now send to your AI model
-      let aiReply = await askGroq(extractedText);
+      let aiReply = await askGemini(extractedText);
       appendMessage("DAV AI", aiReply, "bot");
     } else {
       appendMessage("DAV AI", "❌ OCR library not loaded.", "bot");
@@ -80,57 +97,54 @@ async function handleScreenshot(file) {
   reader.readAsDataURL(file);
 }
 
-async function askGroq(prompt, memoryLength = 20) {
+async function askGemini(prompt) {
   try {
-    // Get last N messages for short-term memory
-    const context = chatHistory
+    // Get last 100 user/bot messages, clean HTML
+    const contextMessages = chatHistory
       .filter(msg => msg.className === "user" || msg.className === "bot")
-      .slice(-memoryLength)
-      .map(msg => ({
-        role: msg.className === "user" ? "user" : "assistant",
-        content: stripHTML(msg.text)
-      }));
+      .slice(-100)
+      .map(msg => `${msg.sender}: ${stripHTML(msg.text)}`);
 
-    // Add the current user prompt
-    context.push({ role: "user", content: prompt });
+    // Build full prompt with context
+    const fullPrompt = contextMessages.join("\n") + `\nYou: ${prompt}`;
 
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    const response = await fetch("https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyBWbPgliADegJIxSqsUty7BPwmpn8sk74c", {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer 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`,
+        "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "llama3-8b-8192",
-        messages: [
-          { role: "system", content: "You are a helpful AI for DAV students." },
-          ...context
-        ],
-      }),
+        contents: [
+          {
+            parts: [{ text: fullPrompt }]
+          }
+        ]
+      })
     });
 
     if (!response.ok) {
       const error = await response.text();
-      console.error("Groq API error:", error);
-      return "❌ No response from AI.";
+      console.error("Gemini API error:", error);
+      return "❌ No response from Gemini.";
     }
 
     const data = await response.json();
     if (
       data &&
-      Array.isArray(data.choices) &&
-      data.choices.length > 0 &&
-      data.choices[0].message &&
-      data.choices[0].message.content
+      Array.isArray(data.candidates) &&
+      data.candidates.length > 0 &&
+      data.candidates[0].content &&
+      data.candidates[0].content.parts &&
+      data.candidates[0].content.parts.length > 0
     ) {
-      return data.choices[0].message.content;
+      return data.candidates[0].content.parts[0].text;
     } else {
-      console.error("Groq API unexpected response:", data);
-      return "❌ No response from AI.";
+      console.error("Gemini API unexpected response:", data);
+      return "❌ No response from Gemini.";
     }
   } catch (err) {
-    console.error("Groq API fetch error:", err);
-    return "❌ No response from AI.";
+    console.error("Gemini API fetch error:", err);
+    return "❌ No response from Gemini.";
   }
 }
 
@@ -161,8 +175,8 @@ form.addEventListener("submit", (e) => {
     reply = getAIResponse(userText); // 🔍 Try your logic first
 
 if (reply.startsWith("❌")) {
-  // If your logic fails, ask Groq
-  reply = await askGroq(userText);
+  
+  reply = await askGemini(userText);
 }
 
       } catch {
@@ -200,6 +214,12 @@ async function generateImage(prompt) {
     return "❌ Something went wrong while generating the image.";
   }
 }
+function cleanMarkdown(text) {
+  return text
+    .replace(/^##\s*/gm, '<h2>')        // For ## headings
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>') // For **bold**
+    .replace(/\n/g, '<br>');            // Line breaks
+}
 
 function appendMessage(sender, text, className) {
   // Add message to chat history
@@ -209,7 +229,9 @@ function appendMessage(sender, text, className) {
 
   const msgDiv = document.createElement("div");
   msgDiv.classList.add("chat-message", className);
-  msgDiv.innerHTML = `<strong>${sender}:</strong> ${text}`;
+msgDiv.innerHTML = `<strong>${sender}:</strong><br>${cleanMarkdown(text)}`;
+
+
 
   const time = document.createElement("span");
   time.className = "msg-time";
@@ -261,7 +283,7 @@ function appendMessage(sender, text, className) {
       if (typeof window.lastUserMessage === 'string') {
         appendMessage("DAV AI", "Regenerating...", "bot");
         setTimeout(async () => {
-          let reply = await askGroq(window.lastUserMessage);
+          let reply = await askGemini(window.lastUserMessage);
           appendMessage("DAV AI", reply, "bot");
         }, 500);
       }
